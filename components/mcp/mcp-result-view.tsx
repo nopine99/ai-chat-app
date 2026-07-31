@@ -10,7 +10,15 @@ function RawJson({ value }: { value: unknown }) {
   );
 }
 
-function ResourceContentView({ resource }: { resource: unknown }) {
+function ResourceContentView({
+  resource,
+  imageResolver,
+}: {
+  resource: unknown;
+  imageResolver?: (imageId: string) =>
+    | { mimeType: string; data: string; alt?: string }
+    | undefined;
+}) {
   if (!isRecord(resource)) return <RawJson value={resource} />;
 
   const uri = typeof resource.uri === "string" ? resource.uri : undefined;
@@ -54,6 +62,23 @@ function ResourceContentView({ resource }: { resource: unknown }) {
         )}
       </div>
     );
+  }
+
+  if (typeof resource.imageId === "string") {
+    const resolved = imageResolver?.(resource.imageId);
+    if (resolved) {
+      return (
+        <div className="flex flex-col gap-1">
+          {meta}
+          {/* eslint-disable-next-line @next/next/no-img-element -- 첨부 이미지를 미리보기로 보여준다. */}
+          <img
+            src={`data:${resolved.mimeType};base64,${resolved.data}`}
+            alt={resolved.alt || uri || "리소스 미리보기"}
+            className="max-h-64 max-w-full rounded-lg border object-contain"
+          />
+        </div>
+      );
+    }
   }
 
   return <RawJson value={resource} />;
@@ -118,7 +143,12 @@ function ContentBlockView({
       );
 
     case "resource":
-      return <ResourceContentView resource={block.resource} />;
+      return (
+        <ResourceContentView
+          resource={block.resource}
+          imageResolver={imageResolver}
+        />
+      );
 
     case "resource_link":
       return (
@@ -198,7 +228,11 @@ export function McpResultView({
     return (
       <div className="flex flex-col gap-2">
         {result.contents.map((resource, index) => (
-          <ResourceContentView key={index} resource={resource} />
+          <ResourceContentView
+            key={index}
+            resource={resource}
+            imageResolver={imageResolver}
+          />
         ))}
       </div>
     );

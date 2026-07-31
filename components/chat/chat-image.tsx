@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { ImageOff } from "lucide-react";
 
 interface ChatImageProps {
@@ -11,42 +11,30 @@ interface ChatImageProps {
   alt?: string;
 }
 
-function toObjectUrl(mimeType: string, base64: string): string | null {
-  try {
-    const binary = atob(base64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i += 1) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    const blob = new Blob([bytes], { type: mimeType });
-    return URL.createObjectURL(blob);
-  } catch {
-    return null;
-  }
+function toDataUrl(mimeType: string, base64: string): string {
+  return `data:${mimeType};base64,${base64.replace(/\s/g, "")}`;
 }
 
-function resolveDisplaySource(
+function resolveDisplayUrl(
   src: string | undefined,
   mimeType: string | undefined,
   data: string | undefined
-): { url: string; revoke: boolean } | null {
+): string | null {
   if (
     src?.startsWith("blob:") ||
     src?.startsWith("http://") ||
     src?.startsWith("https://") ||
     src?.startsWith("data:image/")
   ) {
-    return { url: src, revoke: false };
+    return src;
   }
 
-  if (mimeType && data) {
-    const url = toObjectUrl(mimeType, data.replace(/\s/g, ""));
-    return url ? { url, revoke: true } : null;
+  if (mimeType && data && data.replace(/\s/g, "").length >= 32) {
+    return toDataUrl(mimeType, data);
   }
 
-  if (src && mimeType) {
-    const url = toObjectUrl(mimeType, src.replace(/\s/g, ""));
-    return url ? { url, revoke: true } : null;
+  if (src && mimeType && src.replace(/\s/g, "").length >= 32) {
+    return toDataUrl(mimeType, src);
   }
 
   return null;
@@ -54,7 +42,8 @@ function resolveDisplaySource(
 
 /**
  * 말풍선·도구 카드용 이미지.
- * base64는 data URL 문자열로 두지 않고 blob URL로 바꿔 디코드·렌더 비용을 줄인다.
+ * 바이너리는 메시지 본문(마크다운)이 아니라 attachments로 분리되어 오므로,
+ * 여기서는 안정적으로 data URL을 만들어 한 번만 디코드한다.
  */
 export function ChatImage({
   src,
@@ -63,22 +52,14 @@ export function ChatImage({
   alt = "이미지",
 }: ChatImageProps) {
   const sourceKey = `${mimeType ?? ""}:${(data ?? src ?? "").slice(0, 64)}`;
-  const resolved = useMemo(
-    () => resolveDisplaySource(src, mimeType, data),
+  const displayUrl = useMemo(
+    () => resolveDisplayUrl(src, mimeType, data),
     [src, mimeType, data]
   );
-
-  // 소스가 바뀌면 이전 실패 상태가 자동으로 무효화되도록 key로 비교한다.
   const [failedKey, setFailedKey] = useState<string | null>(null);
   const failed = failedKey === sourceKey;
 
-  useEffect(() => {
-    if (!resolved?.revoke) return;
-    const url = resolved.url;
-    return () => URL.revokeObjectURL(url);
-  }, [resolved]);
-
-  if (failed || !resolved) {
+  if (failed || !displayUrl) {
     return (
       <div className="my-2 flex items-center gap-2 rounded-lg border border-dashed border-foreground/15 px-3 py-2 text-[12px] text-muted-foreground last:mb-0">
         <ImageOff className="size-3.5 shrink-0" />
@@ -88,9 +69,9 @@ export function ChatImage({
   }
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- blob/data URL을 그대로 렌더한다.
+    // eslint-disable-next-line @next/next/no-img-element -- data/http URL을 그대로 렌더한다.
     <img
-      src={resolved.url}
+      src={displayUrl}
       alt={alt}
       className="my-2 max-h-80 max-w-full rounded-lg border border-foreground/10 object-contain last:mb-0"
       loading="lazy"
