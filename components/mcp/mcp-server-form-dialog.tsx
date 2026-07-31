@@ -14,15 +14,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useMcp } from "@/hooks/use-mcp";
+import { cn } from "@/lib/utils";
 import type { McpServerConfig, McpTransportKind } from "@/lib/types/mcp";
 
 interface McpServerFormDialogProps {
@@ -198,19 +192,44 @@ export function McpServerFormDialog({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="mcp-server-transport">연결 방식</Label>
-            <Select
-              value={transport}
-              onValueChange={(value) => setTransport(value as McpTransportKind)}
+            <span id="mcp-server-transport-label" className="text-sm font-medium">
+              연결 방식
+            </span>
+            {/* Dialog 모달 레이어 위에서 Select 포털이 클릭을 못 받는 이슈를 피해 인라인 토글 사용 */}
+            <div
+              role="radiogroup"
+              aria-labelledby="mcp-server-transport-label"
+              className="grid grid-cols-2 gap-2"
             >
-              <SelectTrigger id="mcp-server-transport" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="stdio">STDIO (로컬 프로세스 실행)</SelectItem>
-                <SelectItem value="http">Streamable HTTP</SelectItem>
-              </SelectContent>
-            </Select>
+              {(
+                [
+                  { value: "stdio", label: "STDIO", hint: "로컬 프로세스" },
+                  { value: "http", label: "HTTP", hint: "Streamable HTTP" },
+                ] as const
+              ).map((option) => {
+                const selected = transport === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected}
+                    onClick={() => setTransport(option.value)}
+                    className={cn(
+                      "flex flex-col items-start rounded-lg border px-3 py-2 text-left transition-colors",
+                      selected
+                        ? "border-ring bg-accent text-accent-foreground"
+                        : "border-input hover:bg-muted/50"
+                    )}
+                  >
+                    <span className="text-sm font-medium">{option.label}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {option.hint}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {transport === "stdio" ? (
