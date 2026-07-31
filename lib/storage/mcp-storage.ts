@@ -1,6 +1,6 @@
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { McpServerConfig } from "@/lib/types/mcp";
 
-const STORAGE_KEY = "ai-memo-app.mcp-servers";
 const SCHEMA_VERSION = 1;
 
 export interface McpServerSnapshot {
@@ -9,6 +9,16 @@ export interface McpServerSnapshot {
 
 interface StoredSnapshot extends McpServerSnapshot {
   version: number;
+}
+
+interface McpServerRow {
+  id: string;
+  name: string;
+  transport: string;
+  stdio: unknown;
+  http: unknown;
+  created_at: string;
+  updated_at: string;
 }
 
 export const EMPTY_MCP_SNAPSHOT: McpServerSnapshot = { servers: [] };
@@ -34,7 +44,10 @@ function isServerConfig(value: unknown): value is McpServerConfig {
     const stdio = value.stdio;
     if (!isRecord(stdio) || typeof stdio.command !== "string") return false;
     if (stdio.args !== undefined) {
-      if (!Array.isArray(stdio.args) || !stdio.args.every((a) => typeof a === "string"))
+      if (
+        !Array.isArray(stdio.args) ||
+        !stdio.args.every((a) => typeof a === "string")
+      )
         return false;
     }
     if (stdio.env !== undefined && !isStringRecord(stdio.env)) return false;
@@ -45,54 +58,90 @@ function isServerConfig(value: unknown): value is McpServerConfig {
   if (value.transport === "http") {
     const http = value.http;
     if (!isRecord(http) || typeof http.url !== "string") return false;
-    if (http.headers !== undefined && !isStringRecord(http.headers)) return false;
+    if (http.headers !== undefined && !isStringRecord(http.headers))
+      return false;
     return true;
   }
 
   return false;
 }
 
-/** 저장값이 없거나 손상됐으면 예외 대신 빈 스냅샷을 돌려준다. */
-function loadSnapshot(): McpServerSnapshot {
-  if (typeof window === "undefined") return EMPTY_MCP_SNAPSHOT;
+function rowToServer(row: McpServerRow): McpServerConfig | null {
+  const candidate: Record<string, unknown> = {
+    id: row.id,
+    name: row.name,
+    transport: row.transport,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+  if (row.stdio !== null && row.stdio !== undefined) {
+    candidate.stdio = row.stdio;
+  }
+  if (row.http !== null && row.http !== undefined) {
+    candidate.http = row.http;
+  }
+  return isServerConfig(candidate) ? candidate : null;
+}
 
+/** 조회·파싱 실패 시 예외 대신 빈 스냅샷을 돌려준다. */
+export async function fetchMcpSnapshot(): Promise<McpServerSnapshot> {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return EMPTY_MCP_SNAPSHOT;
+    const supabase = getSupabaseBrowserClient();
+    const { data, error } = await supabase
+      .from("mcp_servers")
+      .select("id, name, transport, stdio, http, created_at, updated_at")
+      .order("updated_at", { ascending: false });
 
-    const parsed: unknown = JSON.parse(raw);
-    if (!isRecord(parsed) || parsed.version !== SCHEMA_VERSION) {
-      return EMPTY_MCP_SNAPSHOT;
-    }
-    if (!Array.isArray(parsed.servers)) return EMPTY_MCP_SNAPSHOT;
+    if (error) return EMPTY_MCP_SNAPSHOT;
 
-    return { servers: parsed.servers.filter(isServerConfig) };
+    const servers = (data ?? [])
+      .map((row) => rowToServer(row as McpServerRow))
+      .filter((server): server is McpServerConfig => server !== null);
+
+    return { servers };
   } catch {
     return EMPTY_MCP_SNAPSHOT;
   }
 }
 
-let cached: McpServerSnapshot | null = null;
-
-/**
- * `useSyncExternalStore`가 렌더 중에 호출하므로 항상 같은 참조를 돌려줘야 한다.
- * 그래서 첫 호출 결과를 캐시하고, 쓰기가 일어날 때만 갱신한다.
- */
-export function getStoredMcpSnapshot(): McpServerSnapshot {
-  cached ??= loadSnapshot();
-  return cached;
-}
-
-export function saveMcpSnapshot({ servers }: McpServerSnapshot): void {
-  if (typeof window === "undefined") return;
-
-  const payload: StoredSnapshot = { version: SCHEMA_VERSION, servers };
-  cached = { servers: payload.servers };
-
+export async function saveMcpSnapshot({
+  servers,
+}: McpServerSnapshot): Promise<void> {
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    const supabase = getSupabaseBrowserClient();
+    const keptIds = servers.map((server) => server.id);
+
+    const rows = servers.map((server) => ({
+      id: server.id,
+      name: server.name,
+      transport: server.transport,
+      stdio: server.stdio ?? null,
+      http: server.http ?? null,
+      created_at: server.createdAt,
+      updated_at: server.updatedAt,
+    }));
+
+    if (rows.length > 0) {
+      const { error: upsertError } = await supabase
+        .from("mcp_servers")
+        .upsert(rows, { onConflict: "id" });
+      if (upsertError) return;
+    }
+
+    const { data: existing, error: listError } = await supabase
+      .from("mcp_servers")
+      .select("id");
+    if (listError) return;
+
+    const staleIds = (existing ?? [])
+      .map((row) => row.id as string)
+      .filter((id) => !keptIds.includes(id));
+
+    if (staleIds.length > 0) {
+      await supabase.from("mcp_servers").delete().in("id", staleIds);
+    }
   } catch {
-    // 용량 초과나 프라이빗 모드에서의 쓰기 실패는 등록 흐름을 막지 않는다.
+    // 네트워크 실패는 등록 흐름을 막지 않는다.
   }
 }
 
@@ -106,11 +155,12 @@ export function exportMcpSnapshot(servers: McpServerConfig[]): string {
 export function parseImportedSnapshot(raw: string): McpServerConfig[] {
   const parsed: unknown = JSON.parse(raw);
 
-  const servers = isRecord(parsed) && Array.isArray(parsed.servers)
-    ? parsed.servers
-    : Array.isArray(parsed)
-      ? parsed
-      : null;
+  const servers =
+    isRecord(parsed) && Array.isArray(parsed.servers)
+      ? parsed.servers
+      : Array.isArray(parsed)
+        ? parsed
+        : null;
 
   if (!servers) {
     throw new Error("올바른 MCP 서버 설정 파일이 아닙니다.");

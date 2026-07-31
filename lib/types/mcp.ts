@@ -1,4 +1,4 @@
-/** 클라이언트(localStorage)와 서버(API Route)가 함께 사용하는 MCP 계약 타입. */
+/** 클라이언트(Supabase)와 서버(API Route)가 함께 사용하는 MCP 계약 타입. */
 
 export type McpTransportKind = "stdio" | "http";
 
@@ -14,7 +14,7 @@ export interface McpHttpConfig {
   headers?: Record<string, string>;
 }
 
-/** 클라이언트가 localStorage에 저장하는 서버 등록 정보. */
+/** 클라이언트가 Supabase에 저장하는 서버 등록 정보. */
 export interface McpServerConfig {
   id: string;
   name: string;

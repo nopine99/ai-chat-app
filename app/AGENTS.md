@@ -1,6 +1,6 @@
 # app/ — App Router & UI
 
-Next.js App Router 영역. 페이지·레이아웃·클라이언트 컴포넌트와 브라우저 저장소를 담당한다.
+Next.js App Router 영역. 페이지·레이아웃·클라이언트 컴포넌트와 Supabase 영속화를 담당한다.
 서버 로직은 `app/api/`로 위임한다.
 
 ## Tech Stack & Constraints
@@ -18,13 +18,14 @@ Next.js App Router 영역. 페이지·레이아웃·클라이언트 컴포넌트
 - 레이아웃 골격: 상단 = 모델/MCP 서버 관리 진입, 본문 = 채팅 타임라인(유저·AI 버블 + MCP 결과 카드), 하단 = 입력창.
 - 입력창의 `/`는 **Prompt 전용 트리거**다. 다른 용도로 재사용하지 마라.
 
-## Storage (localStorage)
+## Storage (Supabase)
 
-- 저장 항목은 MCP 서버 메타데이터와 **채팅 세션 목록**으로 제한한다. 세션은 저장 시점에 `updatedAt` 기준 **최근 30개**만 남기고 오래된 것부터 버린다.
-- 활성 세션 식별자(`activeChatId`)도 함께 저장해, 새로고침 후 마지막으로 보던 대화를 그대로 연다.
+- 저장 항목은 MCP 서버 메타데이터(`mcp_servers`)와 **채팅 세션 목록**(`chat_sessions`)으로 제한한다. 세션은 저장 시점에 `updatedAt` 기준 **최근 30개**만 남기고 오래된 것부터 버린다.
+- 활성 세션 식별자(`activeChatId`)는 `app_settings`에 저장해, 새로고침 후 마지막으로 보던 대화를 그대로 연다.
+- 도메인 타입(`ChatSession`, `McpServerConfig`)은 `lib/types/*`를 유지하고, DB 컬럼은 그 필드에 1:1로 맞춘다(`messages`/`stdio`/`http`는 jsonb).
+- 읽기/쓰기는 `lib/storage/*` + `lib/supabase/client.ts`로 감싼다. 브라우저 클라이언트는 `NEXT_PUBLIC_SUPABASE_*`만 사용한다.
 - 토큰·비밀번호 등 민감값은 저장하지 않는 것을 기본으로 하고, 저장이 불가피하면 보안 경고 배너를 함께 노출한다.
-- 읽기/쓰기는 단일 모듈로 감싸고, SSR 중 `window` 접근이 없도록 `useEffect` 내부 또는 가드 뒤에서만 호출한다.
-- 저장 데이터에는 스키마 버전 필드를 두고, 파싱 실패 시 예외를 던지지 말고 기본값으로 복구한다.
+- 파싱·조회 실패 시 예외를 던지지 말고 기본값(빈 스냅샷)으로 복구한다. 쓰기는 디바운스한다.
 
 ## UX Rules
 

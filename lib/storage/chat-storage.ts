@@ -1,3 +1,4 @@
+import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type {
   ChatImageAttachment,
   ChatMessage,
@@ -5,19 +6,20 @@ import type {
   ChatToolCall,
 } from "@/lib/types/chat";
 
-const STORAGE_KEY = "ai-memo-app.chat";
-const SCHEMA_VERSION = 1;
-
-/** localStorage 용량 한도(약 5MB)에 닿기 전에 오래된 대화를 버린다. */
+/** DB 용량·목록 UX를 위해 오래된 대화를 버린다. */
 const MAX_SESSIONS = 30;
+const ACTIVE_CHAT_KEY = "activeChatId";
 
 export interface ChatSnapshot {
   sessions: ChatSession[];
   activeChatId: string | null;
 }
 
-interface StoredSnapshot extends ChatSnapshot {
-  version: number;
+interface ChatSessionRow {
+  id: string;
+  title: string;
+  updated_at: string;
+  messages: unknown;
 }
 
 export const EMPTY_CHAT_SNAPSHOT: ChatSnapshot = {
@@ -77,15 +79,18 @@ function isMessage(value: unknown): value is ChatMessage {
   return true;
 }
 
-function isSession(value: unknown): value is ChatSession {
-  return (
-    isRecord(value) &&
-    typeof value.id === "string" &&
-    typeof value.title === "string" &&
-    typeof value.updatedAt === "string" &&
-    Array.isArray(value.messages) &&
-    value.messages.every(isMessage)
-  );
+function parseMessages(value: unknown): ChatMessage[] {
+  if (!Array.isArray(value)) return [];
+  return value.filter(isMessage);
+}
+
+function rowToSession(row: ChatSessionRow): ChatSession {
+  return {
+    id: row.id,
+    title: row.title,
+    updatedAt: row.updated_at,
+    messages: parseMessages(row.messages),
+  };
 }
 
 /** 최신 세션 MAX_SESSIONS개만 남기되, 사이드바 순서가 바뀌지 않도록 원래 배열 순서는 유지한다. */
@@ -112,60 +117,85 @@ function resolveActiveChatId(
     : null;
 }
 
-/** 저장값이 없거나 손상됐으면 예외 대신 빈 스냅샷을 돌려준다. */
-function loadChatSnapshot(): ChatSnapshot {
-  if (typeof window === "undefined") return EMPTY_CHAT_SNAPSHOT;
-
+/** 조회·파싱 실패 시 예외 대신 빈 스냅샷을 돌려준다. */
+export async function fetchChatSnapshot(): Promise<ChatSnapshot> {
   try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    if (!raw) return EMPTY_CHAT_SNAPSHOT;
+    const supabase = getSupabaseBrowserClient();
+    const [sessionsResult, activeResult] = await Promise.all([
+      supabase
+        .from("chat_sessions")
+        .select("id, title, updated_at, messages")
+        .order("updated_at", { ascending: false }),
+      supabase
+        .from("app_settings")
+        .select("value")
+        .eq("key", ACTIVE_CHAT_KEY)
+        .maybeSingle(),
+    ]);
 
-    const parsed: unknown = JSON.parse(raw);
-    if (!isRecord(parsed) || parsed.version !== SCHEMA_VERSION) {
-      return EMPTY_CHAT_SNAPSHOT;
-    }
-    if (!Array.isArray(parsed.sessions)) return EMPTY_CHAT_SNAPSHOT;
+    if (sessionsResult.error) return EMPTY_CHAT_SNAPSHOT;
 
-    const sessions = trimSessions(parsed.sessions.filter(isSession));
+    const sessions = trimSessions(
+      (sessionsResult.data ?? []).map((row) =>
+        rowToSession(row as ChatSessionRow)
+      )
+    );
+    const activeValue = activeResult.data?.value;
 
     return {
       sessions,
-      activeChatId: resolveActiveChatId(sessions, parsed.activeChatId),
+      activeChatId: resolveActiveChatId(sessions, activeValue),
     };
   } catch {
     return EMPTY_CHAT_SNAPSHOT;
   }
 }
 
-let cached: ChatSnapshot | null = null;
-
-/**
- * `useSyncExternalStore`가 렌더 중에 호출하므로 항상 같은 참조를 돌려줘야 한다.
- * 그래서 첫 호출 결과를 캐시하고, 쓰기가 일어날 때만 갱신한다.
- */
-export function getStoredChatSnapshot(): ChatSnapshot {
-  cached ??= loadChatSnapshot();
-  return cached;
-}
-
-export function saveChatSnapshot({
+export async function saveChatSnapshot({
   sessions,
   activeChatId,
-}: ChatSnapshot): void {
-  if (typeof window === "undefined") return;
-
-  const kept = trimSessions(sessions);
-  const payload: StoredSnapshot = {
-    version: SCHEMA_VERSION,
-    sessions: kept,
-    activeChatId: resolveActiveChatId(kept, activeChatId),
-  };
-  cached = { sessions: payload.sessions, activeChatId: payload.activeChatId };
-
+}: ChatSnapshot): Promise<void> {
   try {
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    const supabase = getSupabaseBrowserClient();
+    const kept = trimSessions(sessions);
+    const nextActive = resolveActiveChatId(kept, activeChatId);
+    const keptIds = kept.map((session) => session.id);
+
+    const rows = kept.map((session) => ({
+      id: session.id,
+      title: session.title,
+      updated_at: session.updatedAt,
+      messages: session.messages,
+    }));
+
+    if (rows.length > 0) {
+      const { error: upsertError } = await supabase
+        .from("chat_sessions")
+        .upsert(rows, { onConflict: "id" });
+      if (upsertError) return;
+    }
+
+    const { data: existing, error: listError } = await supabase
+      .from("chat_sessions")
+      .select("id");
+    if (listError) return;
+
+    const staleIds = (existing ?? [])
+      .map((row) => row.id as string)
+      .filter((id) => !keptIds.includes(id));
+
+    if (staleIds.length > 0) {
+      await supabase.from("chat_sessions").delete().in("id", staleIds);
+    }
+
+    await supabase.from("app_settings").upsert(
+      {
+        key: ACTIVE_CHAT_KEY,
+        value: nextActive,
+      },
+      { onConflict: "key" }
+    );
   } catch {
-    // 용량 초과나 프라이빗 모드에서의 쓰기 실패는 대화 진행을 막지 않는다.
-    // 에러 객체에 저장하려던 대화 내용이 실려 있을 수 있어 로그로도 남기지 않는다.
+    // 네트워크 실패는 대화 진행을 막지 않는다.
   }
 }

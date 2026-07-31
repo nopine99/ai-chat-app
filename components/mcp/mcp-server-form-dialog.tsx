@@ -182,7 +182,7 @@ export function McpServerFormDialog({
         <DialogHeader>
           <DialogTitle>{editingServer ? "서버 수정" : "MCP 서버 추가"}</DialogTitle>
           <DialogDescription>
-            등록 정보는 이 브라우저의 localStorage에만 저장돼요.
+            등록 정보는 Supabase에 저장돼요.
           </DialogDescription>
         </DialogHeader>
 
@@ -317,7 +317,7 @@ export function McpServerFormDialog({
           )}
 
           <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-2 text-xs text-amber-700 dark:text-amber-400">
-            토큰·API 키 같은 민감한 값은 이 브라우저의 localStorage에 평문으로 저장돼요. 공용 기기에서는 등록을 피해주세요.
+            토큰·API 키 같은 민감한 값은 Supabase에 평문으로 저장돼요. 공용 기기에서는 등록을 피해주세요.
           </p>
 
           {error && <p className="text-sm text-destructive">{error}</p>}
