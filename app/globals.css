@@ -1,0 +1,196 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+/* 빌드 산출물에는 SSR 직렬화로 이스케이프된 클래스 문자열과 에러 로그가 남는다.
+   스캐너가 이를 다시 주우면 깨진 규칙이 무한히 재생성되므로 제외한다. */
+@source not "../.next";
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-heading: var(--font-sans);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-chat-wallpaper: var(--chat-wallpaper);
+  --color-bubble-user: var(--bubble-user);
+  --color-bubble-user-foreground: var(--bubble-user-foreground);
+  --color-bubble-assistant: var(--bubble-assistant);
+  --color-bubble-assistant-foreground: var(--bubble-assistant-foreground);
+  --color-bubble-assistant-border: var(--bubble-assistant-border);
+  --color-stop-sight: var(--stop-sight);
+  --color-stop-food: var(--stop-food);
+  --color-stop-cafe: var(--stop-cafe);
+  --color-stop-stay: var(--stop-stay);
+  --color-stop-shopping: var(--stop-shopping);
+  --color-stop-activity: var(--stop-activity);
+  --color-route: var(--route);
+}
+
+:root {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  /* LINE 그린 계열 포인트 컬러 (조금 눅여서 눈에 편안하게) */
+  --primary: #29b06b;
+  --primary-foreground: #ffffff;
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: #e8f5ee;
+  --accent-foreground: #1c8a52;
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: #29b06b;
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --radius: 0.625rem;
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: #29b06b;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #e8f5ee;
+  --sidebar-accent-foreground: #1c8a52;
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: #29b06b;
+
+  /* 카카오톡풍 말풍선 & 채팅 배경 (LINE 그린 x 카카오 옐로우 혼합) */
+  --brand: #29b06b;
+  --brand-foreground: #ffffff;
+  --chat-wallpaper: #e7eee8;
+  --bubble-user: #fde28f;
+  --bubble-user-foreground: #3a2f14;
+  --bubble-assistant: #ffffff;
+  --bubble-assistant-foreground: #262626;
+  --bubble-assistant-border: #e6e9e6;
+
+  /* 여행 일정 지도: 카테고리별 마커 색과 경로 화살표 색 */
+  --stop-sight: #2f6fd0;
+  --stop-food: #e0632c;
+  --stop-cafe: #9a5bd1;
+  --stop-stay: #17836f;
+  --stop-shopping: #c4356f;
+  --stop-activity: #b8860f;
+  --route: #3f4a44;
+}
+
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: #35c97c;
+  --primary-foreground: #0a2416;
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: #163526;
+  --accent-foreground: #6fe3ab;
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: #35c97c;
+  --chart-1: oklch(0.87 0 0);
+  --chart-2: oklch(0.556 0 0);
+  --chart-3: oklch(0.439 0 0);
+  --chart-4: oklch(0.371 0 0);
+  --chart-5: oklch(0.269 0 0);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: #35c97c;
+  --sidebar-primary-foreground: #0a2416;
+  --sidebar-accent: #163526;
+  --sidebar-accent-foreground: #6fe3ab;
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: #35c97c;
+
+  --brand: #35c97c;
+  --brand-foreground: #0a2416;
+  --chat-wallpaper: #16211a;
+  --bubble-user: #d9a63b;
+  --bubble-user-foreground: #241a05;
+  --bubble-assistant: #23272a;
+  --bubble-assistant-foreground: #ececec;
+  --bubble-assistant-border: #33383a;
+
+  --stop-sight: #6ba4f0;
+  --stop-food: #f5915c;
+  --stop-cafe: #c295ea;
+  --stop-stay: #4fc0a8;
+  --stop-shopping: #ee7aa6;
+  --stop-activity: #e0b84a;
+  --route: #b3bdb7;
+}
+
+@utility chat-wallpaper {
+  /* 배경 이미지는 임의값 유틸리티가 아니라 CSS로 둔다.
+     클래스명에 따옴표가 들어가면 SSR 직렬화 때 HTML 엔티티로 바뀌고,
+     Tailwind 스캐너가 그 문자열을 주워 깨진 url() 규칙을 만든다. */
+  background-color: var(--chat-wallpaper);
+  background-image: url("/chat-bg-pattern.png");
+  background-repeat: repeat;
+  background-size: 340px;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+  html {
+    @apply font-sans;
+  }
+}

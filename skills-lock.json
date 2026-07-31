@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "skills": {
+    "advisor-strategy": {
+      "source": "devbrother2024/skills",
+      "sourceType": "github",
+      "skillPath": "advisor-strategy/SKILL.md",
+      "computedHash": "3f73219c0c122dab46c0e6aac471e6551663cdba6a8fc2dddc11473f77337de8"
+    },
+    "agents-md": {
+      "source": "devbrother2024/skills",
+      "sourceType": "github",
+      "skillPath": "agents-md/SKILL.md",
+      "computedHash": "937d558f2a9ae1b80800b1b89668188693c360c45ffd49b493682bbfc6b6d3fd"
+    },
+    "artifact-design": {
+      "source": "devbrother2024/skills",
+      "sourceType": "github",
+      "skillPath": "artifact-design/SKILL.md",
+      "computedHash": "bf87eb7cba3361952256ba8c1006fe21e7642e7f8553ba3bf3034c4085f7a9df"
+    },
+    "autofix": {
+      "source": "devbrother2024/skills",
+      "sourceType": "github",
+      "skillPath": "autofix/SKILL.md",
+      "computedHash": "0c520edab09865ddc65d4d6493745683a71134c949565e55dfaa0a792e1c86ac"
+    },
+    "deep-interview": {
+      "source": "devbrother2024/skills",
+      "sourceType": "github",
+      "skillPath": "deep-interview/SKILL.md",
+      "computedHash": "265f7b78ad9751054d74e8a2f6ad982c0bd2c8023d54faa2e7668660d3d2ca0e"
+    }
+  }
+}
